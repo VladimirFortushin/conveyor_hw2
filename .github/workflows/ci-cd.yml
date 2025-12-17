@@ -1,0 +1,15 @@
+name: test -> move_to_ubuntu -> copy_webapp.jar_to_wildfly/../deployments -> restart_wildfly
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  deploy:
+    runs-on: ubuntu
+
+            
+            cp mephi/webapp.jar $DEPLOY_DIR/
+
+

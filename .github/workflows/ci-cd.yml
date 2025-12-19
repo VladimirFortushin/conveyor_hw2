@@ -5,9 +5,6 @@ on:
     branches: [ master ]
 
 env:
-  VM_USER: vladimir
-  VM_HOST: 192.168.196.131
-  DEPLOYMENT_DIR: /home/vladimir/mephi/wildfly/standalone/deployments
   SOURCE_WAR_PATH: target/webapp.war
   WAR_NAME: webapp.war
 
@@ -48,15 +45,26 @@ jobs:
         path: target/webapp.war
         retention-days: 1
 
-  deploy_local_machine:
+  deploy_on_local_machine:
     needs: build_and_test
     runs-on: self-hosted
+    defaults:
+      run:
+        shell: bash
     
     steps:
     - uses: actions/download-artifact@v4
       with:
         name: webapp-war
     
-    - run: cp webapp.war "/c/Users/$(whoami)/Desktop/installations/wildfly-37.0.1.Final/standalone/deployments/"
+    - name: Copy WAR to WildFly
+      run: cp webapp.war "$WILDFLY_HOME/standalone/deployments/"
     
-    - run: echo "Файл скопирован. Перезапустите WildFly вручную если нужно."
+    - name: Restart WildFly
+      run: |
+        # Останавливаем старый WildFly (Windows)
+        taskkill //F //IM java.exe //FI "COMMANDLINE eq *wildfly*" 2>/dev/null || true
+        cd "$WILDFLY_HOME/bin"
+        cmd.exe /c "start /B standalone.bat"
+        
+        echo "done"

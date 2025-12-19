@@ -1,15 +1,71 @@
-name: test -> move_to_ubuntu -> copy_webapp.jar_to_wildfly/../deployments -> restart_wildfly
+name: build_and_test -> setup_ssh_connection -> remove_old_.war -> cp_new_.war -> restart_wildfly -> verify_deployment
 
 on:
   push:
-    branches:
-      - master
+    branches: [ master ]
+
+env:
+  VM_USER: vladimir
+  VM_HOST: 192.168.196.131
+  DEPLOYMENT_DIR: /home/vladimir/mephi/wildfly/standalone/deployments
+  SOURCE_WAR_PATH: target/webapp.war
+  WAR_NAME: webapp.war
 
 jobs:
+  build_and_test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: checkout
+      uses: actions/checkout@v4
+    
+    - name: jdk21 setup
+      uses: actions/setup-java@v4
+      with:
+        java-version: '21'
+        distribution: 'temurin'
+    
+    - name: build
+      run: mvn clean install
+    
+    - name: test
+      run: mvn test
   deploy:
-    runs-on: ubuntu
-
-            
-            cp mephi/webapp.jar $DEPLOY_DIR/
-
-
+    runs-on: ubuntu-latest
+    needs: build_and_test
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: setup_ssh_connection
+      run: |
+        mkdir -p ~/.ssh
+        echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+        chmod 600 ~/.ssh/id_rsa
+        ssh-keyscan ${{ env.VM_HOST }} >> ~/.ssh/known_hosts
+    
+    - name: remove_old_.war
+      run: |
+        ssh ${{ env.VM_USER }}@${{ env.VM_HOST }} "
+          cd ${{ env.DEPLOYMENT_DIR }}
+          rm -f ${{ env.WAR_NAME }} ${{ env.WAR_NAME }}.*deployed* ${{ env.WAR_NAME }}.*failed* ${{ env.WAR_NAME }}.*isdeploying* 2>/dev/null || true
+          echo 'Old deployment files removed'
+        "
+    
+    - name: cp_new_.war
+      run: |
+        # Сначала собираем проект
+        mvn clean package
+        scp ${{ env.SOURCE_WAR_PATH }} ${{ env.VM_USER }}@${{ env.VM_HOST }}:${{ env.DEPLOYMENT_DIR }}/
+        echo "New WAR file uploaded"
+    
+    - name: restart_wildfly
+      run: |
+        ssh ${{ env.VM_USER }}@${{ env.VM_HOST }} "sudo systemctl restart wildfly"
+        sleep 15
+    
+    - name: verify_deployment
+      run: |
+        curl -f http://${{ env.VM_HOST }}:8080/webapp/do/test || exit 1
+          

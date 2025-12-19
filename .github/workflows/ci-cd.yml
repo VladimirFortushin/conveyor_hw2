@@ -1,4 +1,4 @@
-name: build -> test -> download -> self_ssh -> vm -> deploy
+name: build -> test -> download -> local_deploy
 
 on:
   push:
@@ -48,37 +48,15 @@ jobs:
         path: target/webapp.war
         retention-days: 1
 
-  deploy_on_vm:
+  deploy_local_machine:
     needs: build_and_test
     runs-on: self-hosted
     
     steps:
-    - name: dwnld .war to local machine
-      uses: actions/download-artifact@v4
+    - uses: actions/download-artifact@v4
       with:
         name: webapp-war
-        path: /tmp
     
-    - name: remove old .war
-      run: |
-        ssh ${{ env.VM_USER }}@${{ env.VM_HOST }} "
-          cd ${{ env.DEPLOYMENT_DIR }}
-          rm -f ${{ env.WAR_NAME }} \
-                 ${{ env.WAR_NAME }}.deployed \
-                 ${{ env.WAR_NAME }}.failed \
-                 ${{ env.WAR_NAME }}.isdeploying \
-                 2>/dev/null || true
-        "
+    - run: cp webapp.war "/c/Users/$(whoami)/Desktop/installations/wildfly-37.0.1.Final/standalone/deployments/"
     
-    - name: cp new .war to VM
-      run: |
-        scp /tmp/webapp.war ${{ env.VM_USER }}@${{ env.VM_HOST }}:${{ env.DEPLOYMENT_DIR }}/
-    
-    - name: reboot wildfly
-      run: |
-        ssh ${{ env.VM_USER }}@${{ env.VM_HOST }} "sudo systemctl restart wildfly"
-        sleep 30
-    
-    - name: verify deployment
-      run: |
-        ssh ${{ env.VM_USER }}@${{ env.VM_HOST }} "curl -f http://localhost:8080/webapp/do/test"
+    - run: echo "Файл скопирован. Перезапустите WildFly вручную если нужно."

@@ -1,4 +1,4 @@
-name: build_and_test -> setup_ssh_connection -> remove_old_.war -> cp_new_.war -> restart_wildfly -> verify_deployment
+name: build -> test -> download -> self_ssh -> vm -> deploy
 
 on:
   push:
@@ -28,10 +28,9 @@ jobs:
     - name: build war
       run: mvn clean package -DskipTests
 
-      
     - name: wildfly setup and deploy .war
       run: |
-        wget https://github.com/wildfly/wildfly/releases/download/37.0.1.Final/wildfly-37.0.1.Final.tar.gz
+        wget -q https://github.com/wildfly/wildfly/releases/download/37.0.1.Final/wildfly-37.0.1.Final.tar.gz
         tar -xzf wildfly-37.0.1.Final.tar.gz
         mv wildfly-37.0.1.Final wildfly
         cp target/webapp.war wildfly/standalone/deployments/
@@ -42,42 +41,44 @@ jobs:
     - name: test
       run: mvn test
       
-  deploy_on_server:
-    runs-on: ubuntu-latest
+    - name: save .war
+      uses: actions/upload-artifact@v4
+      with:
+        name: webapp-war
+        path: target/webapp.war
+        retention-days: 1
+
+  deploy_on_vm:
     needs: build_and_test
+    runs-on: self-hosted
     
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+    - name: dwnld .war to local machine
+      uses: actions/download-artifact@v4
+      with:
+        name: webapp-war
+        path: /tmp
     
-    - name: setup_ssh_connection
-      run: |
-        mkdir -p ~/.ssh
-        echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
-        chmod 600 ~/.ssh/id_rsa
-        ssh-keyscan ${{ env.VM_HOST }} >> ~/.ssh/known_hosts
-    
-    - name: remove_old_.war
+    - name: remove old .war
       run: |
         ssh ${{ env.VM_USER }}@${{ env.VM_HOST }} "
           cd ${{ env.DEPLOYMENT_DIR }}
-          rm -f ${{ env.WAR_NAME }} ${{ env.WAR_NAME }}.*deployed* ${{ env.WAR_NAME }}.*failed* ${{ env.WAR_NAME }}.*isdeploying* 2>/dev/null || true
-          echo 'Old deployment files removed'
+          rm -f ${{ env.WAR_NAME }} \
+                 ${{ env.WAR_NAME }}.deployed \
+                 ${{ env.WAR_NAME }}.failed \
+                 ${{ env.WAR_NAME }}.isdeploying \
+                 2>/dev/null || true
         "
     
-    - name: cp_new_.war
+    - name: cp new .war to VM
       run: |
-        # Сначала собираем проект
-        mvn clean package
-        scp ${{ env.SOURCE_WAR_PATH }} ${{ env.VM_USER }}@${{ env.VM_HOST }}:${{ env.DEPLOYMENT_DIR }}/
-        echo "New WAR file uploaded"
+        scp /tmp/webapp.war ${{ env.VM_USER }}@${{ env.VM_HOST }}:${{ env.DEPLOYMENT_DIR }}/
     
-    - name: restart_wildfly
+    - name: reboot wildfly
       run: |
         ssh ${{ env.VM_USER }}@${{ env.VM_HOST }} "sudo systemctl restart wildfly"
-        sleep 15
+        sleep 30
     
-    - name: verify_deployment
+    - name: verify deployment
       run: |
-        curl -f http://${{ env.VM_HOST }}:8080/webapp/do/test || exit 1
-          
+        ssh ${{ env.VM_USER }}@${{ env.VM_HOST }} "curl -f http://localhost:8080/webapp/do/test"

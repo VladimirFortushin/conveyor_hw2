@@ -24,22 +24,25 @@ jobs:
       with:
         java-version: '21'
         distribution: 'temurin'
+    
+    - name: build war
+      run: mvn clean package -DskipTests
 
-    - name: wildfly setup
+      
+    - name: wildfly setup and deploy .war
       run: |
         wget https://github.com/wildfly/wildfly/releases/download/37.0.1.Final/wildfly-37.0.1.Final.tar.gz
         tar -xzf wildfly-37.0.1.Final.tar.gz
-        cd wildfly-37.0.1.Final/bin
+        mv wildfly-37.0.1.Final wildfly
+        cp target/webapp.war wildfly/standalone/deployments/
+        cd wildfly/bin
         ./standalone.sh &
         sleep 30
-        curl -f http://localhost:8080
-    
-    - name: build
-      run: mvn clean install
     
     - name: test
       run: mvn test
-  deploy:
+      
+  deploy_on_server:
     runs-on: ubuntu-latest
     needs: build_and_test
     

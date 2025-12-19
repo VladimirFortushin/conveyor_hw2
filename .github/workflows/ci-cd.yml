@@ -24,6 +24,16 @@ jobs:
       with:
         java-version: '21'
         distribution: 'temurin'
+
+    - name: wildfly setup
+      run: |
+        wget https://github.com/wildfly/wildfly/releases/download/38.0.1.Final/wildfly-38.0.1.Final.tar.gz
+        tar -xzf wildfly-38.0.1.Final.tar.gz
+        mv wildfly-38.0.1.Final wildfly
+        cd wildfly/bin
+        ./standalone.sh &
+        sleep 30
+        curl -f http://localhost:8080
     
     - name: build
       run: mvn clean install

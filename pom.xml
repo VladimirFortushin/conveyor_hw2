@@ -61,6 +61,14 @@
                     <includeTestScope>true</includeTestScope>
                 </configuration>
             </plugin>
+            <plugin>
+                <groupId>org.owasp</groupId>
+                <artifactId>dependency-check-maven</artifactId>
+                <version>12.1.9</version>
+                <configuration>
+                    <format>JSON</format>
+                </configuration>
+            </plugin>
         </plugins>
     </build>
 </project>

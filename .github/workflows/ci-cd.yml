@@ -57,29 +57,3 @@ jobs:
         name: webapp-war
         path: target/webapp.war
         retention-days: 1
-
-  deploy_on_local_machine:
-    needs: build_and_test
-    runs-on: self-hosted
-    defaults:
-      run:
-        shell: bash
-    
-    steps:
-    - uses: actions/download-artifact@v4
-      with:
-        name: webapp-war
-    
-    - name: Copy WAR to WildFly
-      run: |
-        USERNAME=$(whoami)
-        cp webapp.war "/c/Users/$USERNAME/Desktop/installations/wildfly-37.0.1.Final/standalone/deployments/"
-    
-    - name: Restart WildFly
-      run: |
-        USERNAME=$(whoami)
-        taskkill //F //IM java.exe //FI "COMMANDLINE eq *wildfly*" 2>/dev/null || true
-        cd "/c/Users/$USERNAME/Desktop/installations/wildfly-37.0.1.Final/bin"
-        cmd.exe /c "start /B standalone.bat"
-        
-        echo "done"

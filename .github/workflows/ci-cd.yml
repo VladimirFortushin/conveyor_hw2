@@ -23,7 +23,7 @@ jobs:
         distribution: 'temurin'
     
     - name: build war
-      run: mvn clean package -DskipTests
+      run: mvn clean verify -DskipTests
     
     - name: save SBOM
       uses: actions/upload-artifact@v4

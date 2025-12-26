@@ -32,6 +32,13 @@ jobs:
         path: |
           target/sbom.json
         retention-days: 1
+
+    - name: Save security report
+      uses: actions/upload-artifact@v4
+      with:
+        name: dependency-check-report
+        path: target/dependency-check-report.json
+        retention-days: 1
     
     - name: wildfly setup and deploy .war
       run: |

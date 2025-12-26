@@ -24,7 +24,20 @@ jobs:
     
     - name: build war
       run: mvn clean package -DskipTests
-
+    
+    - name: create SBOM
+      run: |
+        mvn org.cyclonedx:cyclonedx-maven-plugin:2.9.1:makeAggregateBom
+        cat target/sbom.json 2>/dev/null | head -30 || echo "SBOM file not found"
+    
+    - name: save SBOM
+      uses: actions/upload-artifact@v4
+      with:
+        name: sbom-file
+        path: |
+          target/sbom.json
+        retention-days: 1
+    
     - name: wildfly setup and deploy .war
       run: |
         wget -q https://github.com/wildfly/wildfly/releases/download/37.0.1.Final/wildfly-37.0.1.Final.tar.gz
